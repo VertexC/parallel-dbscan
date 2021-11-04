@@ -2,7 +2,7 @@
 Team members: Bowen Chen
 
 ## Url
-https://vertexc.github.io/
+https://vertexc.github.io/efficient-data-loader/
 
 ## Summary
 In this project, we will looking into different levels of parallelism to accelerate dataloader in deep learing framework. 
