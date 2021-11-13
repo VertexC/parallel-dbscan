@@ -1,48 +1,82 @@
-# Efficient Dataloader for Deep Learning Framework
+# Parallel DBSCAN
 Team members: Bowen Chen
 
 ## Url
-https://vertexc.github.io/efficient-data-loader/
+https://vertexc.github.io/parallel-dbscan/
 
 ## Summary
-In this project, we will looking into different levels of parallelism to accelerate dataloader in deep learing framework. 
+In this project, we are going to implement an efficient clustring method called DBSCAN in parallel.
 
 ## Background
-In deep learning, to train the model, we first need to load and preprocess the training and testing dataset. Take image data as an exmaple, we need to
-- 1) read image data from some compressed data format into memory and organized as an dataset
-- 2) use dataloader to load images and apply different types of transformation (crop, flip) 
-- 3) we may also want to shuffle the dataset at each training epoch
+There are multiple clustring methods, like K-Means, Hierarchical Clustering, and many others. Among them, DBSCAN is a density-based clustering algorithm with some notable advantages. It doesn't requires predifined number of clusters like K-Means. Meanwhile, it identifies outliers as noises and works well on arbitrarily sized and shaped clusters. 
 
-There are different levels we can potentially apply parallelism, like add more workers (multiprocess, multithreads) to process data, and make transformation operations more efficient (cuda). 
+Here is how it works sequentially
+```golang
+// pseudocode from https://en.wikipedia.org/wiki/DBSCAN
+DBSCAN(DB, distFunc, eps, minPts) {
+    C := 0                                                  /* Cluster counter */
+    for each point P in database DB {
+        if label(P) ≠ undefined then continue               /* Previously processed in inner loop */
+        Neighbors N := RangeQuery(DB, distFunc, P, eps)     /* Find neighbors */
+        if |N| < minPts then {                              /* Density check */
+            label(P) := Noise                               /* Label as Noise */
+            continue
+        }
+        C := C + 1                                          /* next cluster label */
+        label(P) := C                                       /* Label initial point */
+        SeedSet S := N \ {P}                                /* Neighbors to expand */
+        for each point Q in S {                             /* Process every seed point Q */
+            if label(Q) = Noise then label(Q) := C          /* Change Noise to border point */
+            if label(Q) ≠ undefined then continue           /* Previously processed (e.g., border point) */
+            label(Q) := C                                   /* Label neighbor */
+            Neighbors N := RangeQuery(DB, distFunc, Q, eps) /* Find neighbors */
+            if |N| ≥ minPts then {                          /* Density check (if Q is a core point) */
+                S := S ∪ N                                  /* Add new neighbors to seed set */
+            }
+        }
+    }
+}
+
+RangeQuery(DB, distFunc, Q, eps) {
+    Neighbors N := empty list
+    for each point P in database DB {                      /* Scan all points in the database */
+        if distFunc(Q, P) ≤ eps then {                     /* Compute distance and check epsilon */
+            N := N ∪ {P}                                   /* Add to result */
+        }
+    }
+    return N
+}
+```
+Basically, it starts with an randomly selected starting point, all points within distance of **epsilon ε** is considered as **neighborhood** . If number of points in neighborhood is larger than **minPts**, we start to mark this point with a new cluster label and further explore its neighborhood, otherwise, we mark the point as **noise**. We iterate the process until all points is properly labeled.
 
 ## Goals and Deliverables
 ### Plan to Achive
-We plan to at least achive speed up compared to the baseline, which is a serial data process and transformation implemented in numpy. And compare the performance to pytorch's dataloader and run analysis.
+We plan to at least achive speed up compared to the baseline (sequential DBSCAN).
 
 ### Hope to Achive
-We hope we can achive a better performance compared to pytorch.
+We hope we can further looked into more advanced implementations of DBSCAN, and try to further optimize it. 
+(Either propose some new parallel algorithm, or fine-tune on the given platform)
 
 ## Platform Choice
-The project is going to be implemented in Python, C++, Cuda.
+The project is going to be implemented in C++, Cuda/MPI.
 
 We are going to evalaute the performance on our own desktop. (CPU:Intel(R) Core(TM) i7-7700K CPU @ 4.20GHz, GPU: NVIDIA Corporation GP106 [GeForce GTX 1060 3GB])
 
 ## The Challenges
-First of all, it is non-trivial to write efficient parallel code in python and there are multiple ways needs to explore (either multithread, multiprocess, if multiprocess, fork or spawn).
-
-Secondly, we need to implement multiple cuda kernels, potentially including crop, flip (horizontal and vertical), permutate, which takes time to make sure correctness and may acuqires multiple iterations to optimize it.
-
-Meanwhile, the python level and cuda level parallelism may not be fully independent, we expect there will be potential issues that we need to resolve.
+First of all, it is non-trivial to write efficient parallel code for DBSCAN. We can notice that **RangeQuery** is the computationally intensive part where we can potentially make it parallel. However, for the higher level of parallism, we have to fix the starting point and search on top of that, having multiple starting points may cause the incorrect clustering results. Meanwhile, when search across the numbers, we can notice that the algorithm is growing the neighbors dynamically, where the load balancing and synchronization could be an issue.
 
 ## Resources
-We are going to use `needle`, which is a toy deep learning framework we developed at `10-414/714 – Deep Learning Systems:
-Algorithms and Implementation` as backbone code for this project.
+Here are some search paper on DBSCAN we may look into
+- A new scalable parallel DBSCAN algorithm using the disjoint-set data structure (SC 2012)
+- G-DBSCAN: A GPU Accelerated Algorithm for Density-based Clustering (ICCS 2013)
+- HPDBSCAN: highly parallel DBSCAN (SC 2015)
+- Theoretically-Efficient and Practical Parallel DBSCAN (SIGMOD 2020)
+
 
 ## Schedule
 The project's implementation basically contains two parts, one is python level multi-worker data process, and another is cuda kernels implementation.
-- **Week1 (11.8-11.14)**, we will explore different ways to implement mutli-worker data processor in python.
-- **Week2 (11.15-11.21)**, we will implement basic cuda kernels and ensure correctness. (Evaluate speedup compared to baseline in milestone report)
-- **Week3 (11.22-11.28)**, we will analyze potential bottleneck in current implementation, and try to resolve it.
-- **Week4 (12.29-12.5)**, we will focus on optimize cuda kernels.
+- **Week2 (11.15-11.21)**, we will implement a sequential verison of DBSCAN in C++ as baseline and correctness validation. In the meantime, we will explore different ways to implement DBSCAN in parallel. 
+- **Week3 (11.22-11.28)**, we will implement parallel DBSCAN and compare it to the baseline.
+- **Week4 (12.29-12.5)**, we will explore more advanced DBSCAN algorithm from research papers and see if we can further improve the performance.
 - **Week5 (12.6-12.10)**, we will wrap up the code, finish the final report and prepare for the poster session.
 
