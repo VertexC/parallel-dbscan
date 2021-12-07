@@ -1,0 +1,4 @@
+*.o
+main
+.vscode
+.ipynb_checkpoints
