@@ -13,4 +13,5 @@ typedef struct {
 #define NOISE -1
 
 void pdsdbscan(const point_t* in, int* out, int num_points, float eps, int minPoints);
+void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int minPoints);
 

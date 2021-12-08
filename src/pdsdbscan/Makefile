@@ -1,3 +1,4 @@
+   
 EXECUTABLE := main
 CC_FILES   := *.cpp
 
@@ -8,7 +9,7 @@ all: $(EXECUTABLE)
 
 OBJDIR=objs
 CXX=g++ -std=c++14 -m64
-CXXFLAGS=-O3 -Wall
+CXXFLAGS=-O3 -Wall -fopenmp -Wno-unknown-pragmas
 
 OBJS=$(OBJDIR)/main.o  $(OBJDIR)/pdsdbscan.o
 

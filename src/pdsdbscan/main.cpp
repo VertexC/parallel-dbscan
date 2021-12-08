@@ -69,7 +69,8 @@ int main(int argc, const char *argv[])
     fclose(input);
 
 
-    pdsdbscan(points, cluster, num_of_points, eps, min_points);
+    // pdsdbscan(points, cluster, num_of_points, eps, min_points);
+    pdsdbscan_omp(points, cluster, num_of_points, eps, min_points);
     
 
     // write wire
@@ -81,7 +82,7 @@ int main(int argc, const char *argv[])
     memcpy(base_name, filename, sizeof(char) * (strlen(filename)-4));
     base_name[strlen(filename)-4] = '\0';
     printf("basename: %s\n", base_name);
-    sprintf(out_file_name, "%s_%s.txt", base_name, "pds");
+    sprintf(out_file_name, "%s_%s.txt", base_name, "pdsomp");
     FILE *out = fopen(out_file_name, "w");
     if (out == NULL) {
         printf("Unable to open file: %s.\n", out_file_name);
