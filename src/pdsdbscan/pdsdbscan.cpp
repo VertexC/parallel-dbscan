@@ -152,28 +152,28 @@ void unionOpWithLock(node_t* a, node_t* b, omp_lock_t* locks) {
     while(x->parent != y->parent) {
         if(x->parent < y->parent) {
             if (x == x->parent) {
-                // printf("try to acquire lock at %d\n", x->parent->idx);
-                omp_set_lock(&locks[x->parent->idx]);
+                printf("try to acquire lock at %d\n", x->idx);
+                omp_set_lock(&locks[x->idx]);
                 if(x == x->parent) { 
                     x->parent = y->parent;
                     node_t* y_root = find(y);
                     y_root->size += x->size;
                 }
-                omp_unset_lock(&locks[x->parent->idx]);
-                // printf("release lock at %d\n", x->parent->idx);
+                omp_unset_lock(&locks[x->idx]);
+                printf("release lock at %d\n", x->idx);
             }
             x = x->parent;
         } else {
             if (y == y->parent) {
-                // printf("try to acquire lock at %d\n", y->parent->idx);
-                omp_set_lock(&locks[y->parent->idx]);
+                printf("try to acquire lock at %d\n", y->idx);
+                omp_set_lock(&locks[y->idx]);
                 if(y == y->parent) { 
                     y->parent = x->parent;
                     node_t* x_root = find(x);
                     x_root->size += x->size;
                 }
-                omp_unset_lock(&locks[y->parent->idx]);
-                // printf("release lock at %d\n", y->parent->idx);
+                omp_unset_lock(&locks[y->idx]);
+                printf("release lock at %d\n", y->idx);
             }
             y = y->parent;
         }
@@ -181,7 +181,7 @@ void unionOpWithLock(node_t* a, node_t* b, omp_lock_t* locks) {
     return;
 }
 
-void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int minPoints) {
+void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int minPoints, int numThreads) {
     vector<node_t*> nodes;
     // convert points to nodes
     for(int i=0; i<num_points; i++) {
@@ -199,7 +199,7 @@ void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int m
         clustered[i].clear();
     }
     
-    int numThreads = 2;
+    // int numThreads = 2;
     int block_size = (num_points + numThreads - 1) / numThreads;
     vector<vector<pair<int, int>>> crossThreadUnionSet(numThreads);
     omp_lock_t locks[num_points];
