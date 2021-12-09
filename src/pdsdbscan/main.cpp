@@ -7,6 +7,11 @@
 #include <vector>
 #include <memory>
 
+#include <assert.h>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+
 #include "dbscan.h"
 
 
@@ -18,6 +23,8 @@ void show_help(const char* progname) {
     printf("Usage: %s [options]\n", progname);
     printf("Program Options:\n");
     printf("\t-f <input_filename> (required)\n");
+    printf("\t-b <backend_method> (default:0) (0:seq, 1:gdbscan, 2:ds-seq, 3:ds-shm)\n");
+    printf("\t-t <num_threads_omp> (default:1)\n");
     printf("\t-?  --help             This message\n");
 }
 
@@ -30,16 +37,28 @@ const char *get_option_string(const char *option_name,
 }
 
 using namespace std;
-
+using namespace std::chrono;
+typedef std::chrono::high_resolution_clock Clock;
+typedef std::chrono::duration<double> dsec;
 
 int main(int argc, const char *argv[])
-{   
+{
     _argc = argc - 1;
     _argv = argv + 1;
     const char *input_filename = get_option_string("-f", NULL);
-
+    const char *backend_method = get_option_string("-b", "0");
+    int method = atoi(backend_method);
+    int num_threads = 0;
+    if (method == 3) {
+        const char *num_thread_str = get_option_string("-t", "1");
+        num_threads = atoi(num_thread_str);
+        if(num_threads <= 0) {
+            printf("Error: Threads shoud larger than 1.\n");
+            return 1;
+        }
+    }
+    printf("filename: %s, method %d, num_threads %d\n", input_filename, method, num_threads);
     FILE *input = fopen(input_filename, "r");
-
     int error = 0;
 
     if (input_filename == NULL) {
@@ -68,10 +87,25 @@ int main(int argc, const char *argv[])
     }
     fclose(input);
 
-
-    // pdsdbscan(points, cluster, num_of_points, eps, min_points);
-    pdsdbscan_omp(points, cluster, num_of_points, eps, min_points);
-    
+    auto compute_start = Clock::now();
+    double compute_time = 0;
+    switch (method)
+    {
+    case 0:
+        break;
+    case 1:
+        break;
+    case 2:
+        pdsdbscan(points, cluster, num_of_points, eps, min_points);
+        break;
+    case 3:
+        pdsdbscan_omp(points, cluster, num_of_points, eps, min_points, num_threads);
+        break;
+    default:
+        break;
+    }
+    compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
+    printf("Computation Time: %lf.\n", compute_time);
 
     // write wire
     char *out_file_name = (char*)malloc(100 * sizeof(char));

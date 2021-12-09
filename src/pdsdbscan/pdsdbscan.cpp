@@ -8,6 +8,7 @@
 
 
 #define DEBUG
+#undef DEBUG
 
 inline float distance(const point_t& a, const point_t& b) {
     return sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y)); 
@@ -152,7 +153,7 @@ void unionOpWithLock(node_t* a, node_t* b, omp_lock_t* locks) {
     while(x->parent != y->parent) {
         if(x->parent < y->parent) {
             if (x == x->parent) {
-                printf("try to acquire lock at %d\n", x->idx);
+                // printf("try to acquire lock at %d\n", x->idx);
                 omp_set_lock(&locks[x->idx]);
                 if(x == x->parent) { 
                     x->parent = y->parent;
@@ -160,12 +161,12 @@ void unionOpWithLock(node_t* a, node_t* b, omp_lock_t* locks) {
                     y_root->size += x->size;
                 }
                 omp_unset_lock(&locks[x->idx]);
-                printf("release lock at %d\n", x->idx);
+                // printf("release lock at %d\n", x->idx);
             }
             x = x->parent;
         } else {
             if (y == y->parent) {
-                printf("try to acquire lock at %d\n", y->idx);
+                // printf("try to acquire lock at %d\n", y->idx);
                 omp_set_lock(&locks[y->idx]);
                 if(y == y->parent) { 
                     y->parent = x->parent;
@@ -173,7 +174,7 @@ void unionOpWithLock(node_t* a, node_t* b, omp_lock_t* locks) {
                     x_root->size += x->size;
                 }
                 omp_unset_lock(&locks[y->idx]);
-                printf("release lock at %d\n", y->idx);
+                // printf("release lock at %d\n", y->idx);
             }
             y = y->parent;
         }
