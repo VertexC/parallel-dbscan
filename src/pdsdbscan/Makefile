@@ -10,8 +10,11 @@ all: $(EXECUTABLE)
 OBJDIR=objs
 CXX=g++ -std=c++14 -m64
 CXXFLAGS=-O3 -Wall -fopenmp -Wno-unknown-pragmas
+LDFLAGS=-L/usr/local/depot/cuda-10.2/lib64/ -lcudart
+NVCC=nvcc
+NVCCFLAGS=-O3 -m64 --gpu-architecture compute_61 -ccbin /usr/bin/gcc
 
-OBJS=$(OBJDIR)/main.o  $(OBJDIR)/pdsdbscan.o
+OBJS=$(OBJDIR)/main.o  $(OBJDIR)/pdsdbscan.o $(OBJDIR)/dbscan.o $(OBJDIR)/gdbscan.o
 
 .PHONY: dirs clean
 
@@ -32,8 +35,5 @@ $(EXECUTABLE): dirs $(OBJS)
 $(OBJDIR)/%.o: %.cpp
 		$(CXX) $< $(CXXFLAGS) -c -o $@
 
-# $(OBJDIR)/main.o: main.cpp dbscan.h
-# 	g++ $(CPPFLAGS) -c main.cpp
-
-# $(OBJDIR)/dbscan.o: dbscan.cpp dbscan.h
-# 	g++ $(CPPFLAGS) -c dbscan.cpp
+$(OBJDIR)/%.o: %.cu
+		$(NVCC) $< $(NVCCFLAGS) -c -o $@
