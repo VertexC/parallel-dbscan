@@ -41,25 +41,9 @@ inline void cudaAssert(cudaError_t code, const char *file, int line, bool abort=
 #endif
 
 
-static inline int nextPow2(int n)
-{
-    n--;
-    n |= n >> 1;
-    n |= n >> 2;
-    n |= n >> 4;
-    n |= n >> 8;
-    n |= n >> 16;
-    n++;
-    return n;
-}
-
 __host__ __device__ float distance(const float2 a, const float2 b) {
     return sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y)); 
 }
-
-// float host_distance(const float2 a, const float2 b) {
-//     return sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y)); 
-// }
 
 __global__ void collectDegree(const float2* points, const int num_points, const float eps, int* degree) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -90,9 +74,6 @@ __global__ void constructEaKernel(const float2* points, const int* Va_degree, co
         if (dis <= eps) {
             Ea[start_idx] = i;
             start_idx++;
-            // if (idx == 841) {
-            //     printf("nb(871)->%d (%f vs %f) \n", i, dis, eps);
-            // }
         }
     }
 }
@@ -145,18 +126,6 @@ __global__ void bfsKernel(bool* Fa, bool* Xa, const int* Va_degree,  const int* 
     }
 }
 
-// __global__ void anyOneKernel(bool* arr, int length, int* result) {
-//     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-//     printf("In anyOne idx %d\n", idx);
-//     if (idx == 0) {
-//         *result = false;
-//         for(int i=0; i<length; i++) {
-//             printf("got %d\n", arr[i]);
-//             *result = (*result) || arr[i]; 
-//         }
-//     }
-// }
-
 __global__ void classifyKernel(int num_points, int minPoints, int* Va_degree, int* type) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= num_points) return;
@@ -203,11 +172,7 @@ void bfs(int idx, int label, int num_points, bool* visited, int* labels, int* ty
 
     const int threadsPerBlock = 256;
     const int blocks = (num_points + threadsPerBlock - 1) / threadsPerBlock;
-    // int flag = false;
     while (true) {
-        // flag = false;
-        // std::cout << "before anyone" << std::endl;
-        // anyOneKernel<<<1, 1>>>(Fa_cu, num_points, &flag);
         int fa_sum = thrust::transform_reduce(thrust::device,
                                         Fa_cu, Fa_cu + num_points,
                                         bool2int<bool,int>(),
@@ -218,10 +183,11 @@ void bfs(int idx, int label, int num_points, bool* visited, int* labels, int* ty
         }
         // printf("idx %d: fa_sum %d\n", idx, fa_sum);
         bfsKernel<<<blocks, threadsPerBlock>>>(Fa_cu, Xa_cu, Va_degree, Va_idx, Ea, type, num_points, minPoints);
-        
+#ifdef DEBUG
         cudaCheckError(cudaThreadSynchronize());
+#endif
     }
-    cudaCheckError(cudaThreadSynchronize());
+    // cudaCheckError(cudaThreadSynchronize());
     cudaCheckError(cudaMemcpy(Xa_host, Xa_cu, num_points * sizeof(bool), cudaMemcpyDeviceToHost));
     for (int i=0; i<num_points; i++) {
         if(Xa_host[i]) {
@@ -256,8 +222,9 @@ void cluster(int num_points, bool* visited, int* labels, int* type, int* Va_degr
 
 
 void gdbscan(const point_t* in, int* out, int num_points, float eps, int minPoints) {
-    std::cout << eps << " " << minPoints << std::endl;   
+    // std::cout << eps << " " << minPoints << std::endl;   
     // convert points data to float2 data
+    auto ckp1 = Clock::now();
     float2* host_points = (float2 *)calloc(num_points, sizeof(float2));
     for(int i=0; i<num_points; i++) {
         host_points[i].x = in[i].x;
@@ -271,16 +238,13 @@ void gdbscan(const point_t* in, int* out, int num_points, float eps, int minPoin
     // set up cuda memory
     float2* cuda_points;
     int* Va_degree;
-    // int* Va_degree_temp;
     int* Va_idx;
     
     int* type_cu;
 
     cudaMalloc((void **)&cuda_points, num_points* sizeof(float2));
 
-    // int rounded_length = nextPow2(num_points); // round up to nextPow2 for exclusive scan
     cudaMalloc((void **)&Va_degree, num_points * sizeof(int));
-    // cudaMalloc((void **)&Va_degree_temp, num_points * sizeof(int));
     cudaMalloc((void **)&Va_idx, num_points * sizeof(int));
     
     cudaMalloc((void **)&type_cu, num_points * sizeof(int));
@@ -295,8 +259,6 @@ void gdbscan(const point_t* in, int* out, int num_points, float eps, int minPoin
     // 1. compute degree
     collectDegree<<<blocks, threadsPerBlock>>>(cuda_points, num_points, eps, Va_degree);
     cudaCheckError(cudaThreadSynchronize());
-    // cudaMemcpy(Va_degree_temp, Va_degree, num_points * sizeof(int), cudaMemcpyDeviceToDevice);
-    // cudaMemcpy(Va_degree, Va_idx, num_points * sizeof(int), cudaMemcpyDeviceToDevice);
     // // 2. compute start idx of each vertex with exclusive scan
     int edge_num = thrust::transform_reduce(thrust::device,
                                         Va_degree, Va_degree + num_points,
@@ -310,17 +272,23 @@ void gdbscan(const point_t* in, int* out, int num_points, float eps, int minPoin
     thrust::exclusive_scan(thrust::device, 
                            Va_degree, Va_degree + num_points, 
                            Va_idx, 0);
+#ifdef DEBUG
     cudaCheckError(cudaThreadSynchronize());
     validateVaKernel<<<blocks, threadsPerBlock>>>(num_points, Va_degree, Va_idx);
+#endif
     // // 3. constructVaKernel
     constructEaKernel<<<blocks, threadsPerBlock>>>(cuda_points, Va_degree, Va_idx, num_points, eps, Ea);
+
+#ifdef DEBUG
     cudaCheckError(cudaThreadSynchronize());
     validateEaKernel<<<blocks, threadsPerBlock>>>(cuda_points, num_points, Va_degree, Va_idx, Ea, eps);
     cudaCheckError(cudaThreadSynchronize());
+#endif
     // // 4. classify type
     classifyKernel<<<blocks, threadsPerBlock>>>(num_points, minPoints, Va_degree, type_cu);
     cudaCheckError(cudaMemcpy(type, type_cu, num_points * sizeof(int), cudaMemcpyDeviceToHost));
-
+    auto ckp2 = Clock::now();
+    printf("graph construction time: %lf.\n", duration_cast<dsec>(ckp2 - ckp1).count());
     // check graph status
 #ifdef VERBOSE
     int* Va_degree_host = (int *)calloc(num_points, sizeof(int));
@@ -345,7 +313,8 @@ void gdbscan(const point_t* in, int* out, int num_points, float eps, int minPoin
 #endif
     // bfs scan
     cluster(num_points, visited, out, type, Va_degree, Va_idx, Ea, minPoints);
-
+    auto ckp3 = Clock::now();
+    printf("bfs scan time: %lf.\n", duration_cast<dsec>(ckp3 - ckp2).count());
     // free resources
     cudaFree(Va_degree);
     cudaFree(Va_idx);

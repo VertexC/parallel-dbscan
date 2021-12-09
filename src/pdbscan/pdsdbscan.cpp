@@ -31,19 +31,6 @@ node_t* find(node_t* a) {
 }
 
 void unionOp(node_t* a, node_t* b) {
-    // node_t* a_r = find(a);
-    // node_t* b_r = find(b);
-    // if (a_r == b_r) {
-    //     return;
-    // }
-    // if (a_r->idx < b_r->idx) {
-    //     a_r->parent = b_r;
-    //     b_r->size += a_r->size;
-    // } else {
-    //     b_r->parent = a_r;
-    //     a_r->size += b_r->size; 
-    // }
-    // return;
     node_t* x = a;
     node_t* y = b;
     while(x->parent != y->parent) {
@@ -184,15 +171,16 @@ void unionOpWithLock(node_t* a, node_t* b, omp_lock_t* locks) {
 }
 
 void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int minPoints, int numThreads) {
-    vector<node_t*> nodes;
+    vector<node_t*> nodes(num_points);
     // convert points to nodes
+    #pragma omp parallel for
     for(int i=0; i<num_points; i++) {
         node_t* node = (node_t*)malloc(sizeof(node_t));
         node->idx = i;
         node->parent = node;
         node->size = 1;
         node->cluster = -1;
-        nodes.push_back(node);
+        nodes[i] = node;
     }
     int type[num_points]; // 0: border, 1: core
     std::atomic_flag clustered[num_points];
@@ -209,16 +197,27 @@ void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int m
         omp_init_lock(&locks[i]);
     }
     
-    #pragma omp parallel for
-    for(int tid=0; tid<numThreads; tid++) {
+    auto ckp1 = Clock::now();
+    vector<double> gn_time(numThreads);
+    int tid;
+    for(tid=0; tid<numThreads; tid++) {
+        gn_time[tid] = 0;
+    }
+    omp_set_num_threads(numThreads);
+    #pragma omp parallel for default(shared) private(tid) schedule(dynamic)
+    for(tid=0; tid<numThreads; tid++) {
+        double wtime = omp_get_wtime();
         int start_idx = tid*block_size;
         int end_idx = (tid+1)*block_size;
+        printf("using %d threads", omp_get_thread_num());
         for (int i=start_idx; i<end_idx; i++) {
             if (i >= num_points) continue;
+            auto gn_ckp = Clock::now();
             auto neighbors = getNeighbors(in, out, i, num_points, eps);
             if (neighbors->size() < minPoints) {
                 continue;
             }
+            gn_time[tid] += duration_cast<dsec>(Clock::now() - gn_ckp).count();
             type[i] = 1; // mark as core
             for(auto& n_id:*neighbors) {
                 if (n_id >= start_idx && n_id < end_idx) {
@@ -235,7 +234,13 @@ void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int m
                 }
             }
         }
+        printf("Time taken by thread %d is %lf.\n", omp_get_thread_num(), omp_get_wtime() - wtime);
     }
+    auto ckp2 = Clock::now();
+    for(tid = 0; tid < numThreads; tid++) {
+        printf("tid %d getNeighbors: %lf.\n", tid, gn_time[tid]);
+    }
+    printf("local compute time: %lf.\n", duration_cast<dsec>(ckp2 - ckp1).count());
     #pragma omp parallel for
     for(int tid=0; tid<numThreads; tid++) {
         auto unionSet = crossThreadUnionSet[tid];
@@ -252,6 +257,8 @@ void pdsdbscan_omp(const point_t* in, int* out, int num_points, float eps, int m
             }
         }
     }
+    auto ckp3 = Clock::now();
+    printf("merge time: %lf.\n", duration_cast<dsec>(ckp3 - ckp2).count());
 #ifdef DEBUG
 for(int i=0; i<num_points; i++) {
     node_t* node = nodes[i];
@@ -262,6 +269,7 @@ for(int i=0; i<num_points; i++) {
     // labeling
     int label = 0;
     // mark root node
+    #pragma omp parallel for
     for(int i=0; i<num_points; i++) {
         node_t* node = nodes[i];
         if(node->parent == node) {
@@ -273,6 +281,7 @@ for(int i=0; i<num_points; i++) {
             out[i] = node->cluster;
         }
     }
+    #pragma omp parallel for
     for(int i=0; i<num_points; i++) {
         node_t* node = nodes[i];
         if(node->parent != node) {
