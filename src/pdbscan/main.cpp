@@ -22,7 +22,7 @@ void show_help(const char* progname) {
     printf("Usage: %s [options]\n", progname);
     printf("Program Options:\n");
     printf("\t-f <input_filename> (required)\n");
-    printf("\t-b <backend_method> (default:0) (0:seq, 1:gdbscan, 2:ds-seq, 3:ds-shm)\n");
+    printf("\t-b <backend_method> (default:0) (0:seq, 1:gdbscan, 2:ds-seq, 3:ds-shm 4:hybrid)\n");
     printf("\t-t <num_threads_omp> (default:1)\n");
     printf("\t-?  --help             This message\n");
 }
