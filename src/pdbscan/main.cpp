@@ -89,17 +89,24 @@ int main(int argc, const char *argv[])
 
     auto compute_start = Clock::now();
     double compute_time = 0;
+    char* method_str = "serial";
     switch (method)
     {
     case 0:
+        serialdbscan(points, cluster, num_of_points, eps, min_points);
+        method_str = "serial";
         break;
     case 1:
+        gdbscan(points, cluster, num_of_points, eps, min_points);
+        method_str = "gdbscan";
         break;
     case 2:
         pdsdbscan(points, cluster, num_of_points, eps, min_points);
+        method_str = "ds-seq";
         break;
     case 3:
         pdsdbscan_omp(points, cluster, num_of_points, eps, min_points, num_threads);
+        method_str = "ds-shm";
         break;
     default:
         break;
@@ -116,7 +123,7 @@ int main(int argc, const char *argv[])
     memcpy(base_name, filename, sizeof(char) * (strlen(filename)-4));
     base_name[strlen(filename)-4] = '\0';
     printf("basename: %s\n", base_name);
-    sprintf(out_file_name, "%s_%s.txt", base_name, "pdsomp");
+    sprintf(out_file_name, "%s_%s.txt", base_name, method_str);
     FILE *out = fopen(out_file_name, "w");
     if (out == NULL) {
         printf("Unable to open file: %s.\n", out_file_name);

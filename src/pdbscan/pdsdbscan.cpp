@@ -66,16 +66,17 @@ void unionOp(node_t* a, node_t* b) {
     return;
 }
 
-
-shared_ptr<vector<int>> getNeighbors(const point_t* in, int* out, int idx, int num_points, float eps) {
-    auto result = make_shared<vector<int>>();
-    for(int i=0; i<num_points; i++) {
-        if (i == idx) continue;
-        if (distance(in[idx], in[i]) <= eps) {
-            result->push_back(i);
+namespace {
+   shared_ptr<vector<int>> getNeighbors(const point_t* in, int* out, int idx, int num_points, float eps) {
+        auto result = make_shared<vector<int>>();
+        for(int i=0; i<num_points; i++) {
+            if (i == idx) continue;
+            if (distance(in[idx], in[i]) <= eps) {
+                result->push_back(i);
+            }
         }
+        return result;
     }
-    return result;
 }
 
 void pdsdbscan(const point_t* in, int* out, int num_points, float eps, int minPoints) {
