@@ -6,7 +6,6 @@
 #include <iostream>
 #include <vector>
 #include <memory>
-
 #include <assert.h>
 #include <chrono>
 #include <cstdio>
@@ -36,11 +35,6 @@ const char *get_option_string(const char *option_name,
   return default_value;
 }
 
-using namespace std;
-using namespace std::chrono;
-typedef std::chrono::high_resolution_clock Clock;
-typedef std::chrono::duration<double> dsec;
-
 int main(int argc, const char *argv[])
 {
     _argc = argc - 1;
@@ -49,7 +43,7 @@ int main(int argc, const char *argv[])
     const char *backend_method = get_option_string("-b", "0");
     int method = atoi(backend_method);
     int num_threads = 0;
-    if (method == 3) {
+    if (method == 3 || method == 4) {
         const char *num_thread_str = get_option_string("-t", "1");
         num_threads = atoi(num_thread_str);
         if(num_threads <= 0) {
@@ -107,6 +101,10 @@ int main(int argc, const char *argv[])
     case 3:
         pdsdbscan_omp(points, cluster, num_of_points, eps, min_points, num_threads);
         method_str = "ds-shm";
+        break;
+    case 4:
+        hybrid(points, cluster, num_of_points, eps, min_points, num_threads);
+        method_str = "hybrid";
         break;
     default:
         break;

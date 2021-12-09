@@ -22,7 +22,6 @@ namespace {
 }
 
 
-
 void serialdbscan(const point_t* in, int* out, int num_points, float eps, int minPoints) {
     bool* visited = (bool *)calloc(num_points, sizeof(bool));
     int cluster_cnt = 0;

@@ -22,7 +22,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="benchmark task runner")
     # parser.add_argument("file", type=str, help="json file of tasks")
-    suffixs = ["_ds-seq.txt", "_ds-shm.txt", "_gdbscan.txt", "_serial.txt"]
+    suffixs = ["_ds-seq.txt", "_ds-shm.txt", "_gdbscan.txt", "_serial.txt", "_hybrid.txt"]
     filenum = 6
     nums = len(suffixs) + 1 # 1 for sklearn's implementation
     fig, axs = plt.subplots(nums, filenum, sharex=True, sharey=True)
