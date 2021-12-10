@@ -9,7 +9,7 @@ all: $(EXECUTABLE)
 
 OBJDIR=objs
 CXX=g++ -std=c++14 -m64
-CXXFLAGS=-O3 -Wall -fopenmp -Wno-unknown-pragmas
+CXXFLAGS=-O3 -g -Wall -fopenmp -Wno-unknown-pragmas
 LDFLAGS=-L/usr/local/depot/cuda-10.2/lib64/ -lcudart
 NVCC=nvcc
 NVCCFLAGS=-O3 -m64 -Xcompiler -fopenmp --gpu-architecture compute_61 -ccbin /usr/bin/gcc

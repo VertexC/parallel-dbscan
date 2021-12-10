@@ -3,3 +3,4 @@ main
 .vscode
 .ipynb_checkpoints
 backup
+.DS_store
